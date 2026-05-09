@@ -6,16 +6,24 @@ from google import genai
 try:
     # 1. 論文の取得 (arXiv)
     print("Fetching paper...")
-    feed_url = 'http://export.arxiv.org/api/query?search_query=all:ai&sortBy=submittedDate&sortOrder=desc&max_results=5'
+    # 最もシンプルな検索クエリに変更
+    feed_url = 'http://export.arxiv.org/api/query?search_query=all:ai&start=0&max_results=1'
     feed = feedparser.parse(feed_url)
     
+    # もしヒットしなかった場合の予備クエリ
     if not feed.entries:
-        print("No papers found. Try again later.")
+        print("Initial search failed. Trying broader search...")
+        feed_url = 'http://export.arxiv.org/api/query?search_query=all:artificial+intelligence&start=0&max_results=1'
+        feed = feedparser.parse(feed_url)
+
+    if not feed.entries:
+        print("No papers found even with broad search. Please check arXiv API status.")
     else:
         entry = feed.entries[0]
         title = entry.title
         summary = entry.summary
         link = entry.link
+        print(f"Paper found: {title}")
 
         # 2. Geminiで要約とツイート作成
         print("Generating tweet...")
