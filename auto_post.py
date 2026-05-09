@@ -24,16 +24,14 @@ try:
 
     # 2. Geminiで要約とツイート作成
     print("Generating tweet...")
-    client = genai.Client(
-        api_key=os.environ["GEMINI_API_KEY"], 
-        http_options={'api_version': 'v1'}
-    )
+    # APIバージョン指定(http_options)を削除し、最もシンプルな初期化にします
+    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
     
     prompt = f"Create a catchy English tweet summarizing this AI paper. Keep it under 250 characters, use 1-2 hashtags, and make it engaging. No markdown formatting. \n\nTitle: {title}\nAbstract: {summary}"
 
-    # モデル名をフルネームで指定
+    # モデル名を 'gemini-1.5-flash' に戻します
     response = client.models.generate_content(
-        model='models/gemini-1.5-flash',
+        model='gemini-1.5-flash',
         contents=prompt
     )
     tweet_text = f"{response.text}\n{link}"
