@@ -1,81 +1,42 @@
 import os
 import feedparser
 import tweepy
-import google.generativeai as genai
+from google import genai
 
-# ==========================================
-# 1. arXiv APIから最新論文を取得するモジュール
-# ==========================================
-def fetch_latest_paper():
-    # cs.AI (Computer Science - AI) の最新論文を1件取得
-    url = 'http://export.arxiv.org/api/query?search_query=cat:cs.AI&sortBy=submittedDate&sortOrder=descending&max_results=1'
-    feed = feedparser.parse(url)
-    
-    if not feed.entries:
-        raise Exception("論文データの取得に失敗しました")
-        
-    paper = feed.entries[0]
-    return {
-        "title": paper.title,
-        "summary": paper.summary,
-        "link": paper.link
-    }
+try:
+    # 1. 論文の取得 (arXiv)
+    print("Fetching paper...")
+    feed_url = 'http://export.arxiv.org/api/query?search_query=cat:cs.AI&sortBy=lastUpdatedDate&sortOrder=desc&max_results=1'
+    feed = feedparser.parse(feed_url)
+    entry = feed.entries[0]
+    title = entry.title
+    summary = entry.summary
+    link = entry.link
 
-# ==========================================
-# 2. AI（Gemini API）で要約＆ポスト生成モジュール
-# ==========================================
-def generate_tweet(paper_data):
-    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-    model = genai.GenerativeModel('gemini-1.5-flash')
-    
-    prompt = f"""
-    以下の学術論文のタイトルと要約を元に、アメリカのテック層やエンジニア向けにX（Twitter）でバズる英語のポストを作成してください。
-    
-    【条件】
-    - 専門用語を適切に使い、ビジネスや開発におけるインパクトを強調すること。
-    - 250文字以内に収めること。
-    - 最後に #AIPaper #MachineLearning のハッシュタグをつけること。
-    - 返答は生成したポストのテキストのみ出力すること。
-    
-    【論文データ】
-    Title: {paper_data['title']}
-    Summary: {paper_data['summary']}
-    """
-    
-    response = model.generate_content(prompt)
-    
-    # 最後に論文のリンクを付与して返す
-    tweet_text = f"{response.text.strip()}\n\nLink: {paper_data['link']}"
-    return tweet_text
+    # 2. Geminiで要約とツイート作成
+    print("Generating tweet...")
+    # 最新のSDK（google-genai）の書き方
+    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    prompt = f"Create a catchy English tweet summarizing this AI paper. Keep it under 250 characters, use 1-2 hashtags, and make it engaging. No markdown formatting. \n\nTitle: {title}\nAbstract: {summary}"
 
-# ==========================================
-# 3. X (Twitter) への自動投稿モジュール
-# ==========================================
-def post_to_x(tweet_text):
-    client = tweepy.Client(
+    # 安定して動く最新モデル（2.0 Flash）を指定
+    response = client.models.generate_content(
+        model='gemini-2.0-flash',
+        contents=prompt
+    )
+    tweet_text = f"{response.text}\n{link}"
+
+    # 3. Xへ投稿
+    print("Posting to X...")
+    x_client = tweepy.Client(
         bearer_token=os.environ["X_BEARER_TOKEN"],
         consumer_key=os.environ["X_API_KEY"],
         consumer_secret=os.environ["X_API_SECRET"],
         access_token=os.environ["X_ACCESS_TOKEN"],
         access_token_secret=os.environ["X_ACCESS_SECRET"]
     )
-    
-    response = client.create_tweet(text=tweet_text)
-    print(f"Post successful! https://twitter.com/user/status/{response.data['id']}")
+    x_client.create_tweet(text=tweet_text)
+    print("Successfully posted to X!")
 
-# ==========================================
-# メイン処理
-# ==========================================
-if __name__ == "__main__":
-    try:
-        print("Fetching paper...")
-        paper = fetch_latest_paper()
-        
-        print("Generating tweet...")
-        tweet = generate_tweet(paper)
-        
-        print("Posting to X...")
-        post_to_x(tweet)
-        
-    except Exception as e:
-        print(f"Error occurred: {e}")
+except Exception as e:
+    print(f"Error occurred: {e}")
