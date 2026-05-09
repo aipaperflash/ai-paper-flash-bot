@@ -6,10 +6,11 @@ from google import genai
 try:
     # 1. 論文の取得 (arXiv)
     print("Fetching paper...")
+    # 検索が不安定な場合を考慮し、最もシンプルなクエリを使用
     feed_url = 'http://export.arxiv.org/api/query?search_query=all:ai&start=0&max_results=1'
     feed = feedparser.parse(feed_url)
     
-    # 論文が取れなかったらテストデータを入れる
+    # 論文が取れなかったらテストデータを入れる（動作確認用）
     if not feed.entries:
         print("arXiv API no response. Using test data for connection check...")
         title = "Attention Is All You Need"
@@ -25,7 +26,12 @@ try:
 
     # 2. Geminiで要約とツイート作成
     print("Generating tweet...")
-    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    # api_versionを'v1'に固定し、modelを安定版の'gemini-1.5-flash'に指定します
+    client = genai.Client(
+        api_key=os.environ["GEMINI_API_KEY"], 
+        http_options={'api_version': 'v1'}
+    )
+    
     prompt = f"Create a catchy English tweet summarizing this AI paper. Keep it under 250 characters, use 1-2 hashtags, and make it engaging. No markdown formatting. \n\nTitle: {title}\nAbstract: {summary}"
 
     response = client.models.generate_content(
