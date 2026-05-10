@@ -1,7 +1,8 @@
 import os
 import feedparser
 import tweepy
-import google.generativeai as genai
+import requests
+import json
 
 try:
     # 1. 論文の取得 (arXiv)
@@ -22,16 +23,32 @@ try:
     
     print(f"Target Paper: {title}")
 
-    # 2. Geminiで要約 (安定版の google-generativeai を使用)
+    # 2. Gemini APIの直接呼び出し（SDKのバグを完全回避）
     print("Generating tweet...")
-    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-    # 古いライブラリではこの書き方が最も確実です
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    api_key = os.environ["GEMINI_API_KEY"]
+    # ライブラリを通さず、直接URLを叩きます
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
     
     prompt = f"Create a catchy English tweet summarizing this AI paper. Keep it under 250 characters, use 1-2 hashtags, and make it engaging. \n\nTitle: {title}\nAbstract: {summary}"
     
-    response = model.generate_content(prompt)
-    tweet_text = f"{response.text}\n{link}"
+    headers = {'Content-Type': 'application/json'}
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}]
+    }
+    
+    # 直接通信を実行
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
+    
+    if response.status_code == 200:
+        result = response.json()
+        ai_text = result['candidates'][0]['content']['parts'][0]['text']
+        tweet_text = f"{ai_text}\n{link}"
+        print("Gemini generation successful!")
+    else:
+        # 💥 【無敵モード】万が一Geminiがエラーになっても、強制的にXへの投稿をテストする
+        print(f"Gemini API Error: {response.text}")
+        print("Using fallback generic tweet to test X posting...")
+        tweet_text = f"Exploring new trends in AI! Check out this paper: {title}\n{link} #AI #Research"
 
     # 3. Xへ投稿
     print("Posting to X...")
