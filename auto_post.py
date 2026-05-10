@@ -1,7 +1,7 @@
 import os
 import feedparser
 import tweepy
-from google import genai
+import google.generativeai as genai
 
 try:
     # 1. 論文の取得 (arXiv)
@@ -10,10 +10,10 @@ try:
     feed = feedparser.parse(feed_url)
     
     if not feed.entries:
-        print("arXiv API no response. Using test data for connection check...")
-        title = "Attention Is All You Need"
-        summary = "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks in an encoder-decoder configuration."
-        link = "https://arxiv.org/abs/1706.03762"
+        print("arXiv API no response. Using test data...")
+        title = "Foundations of GenIR"
+        summary = "This paper explores the fundamental principles of Generative Information Retrieval."
+        link = "https://arxiv.org/abs/2401.00001"
     else:
         entry = feed.entries[0]
         title = entry.title
@@ -22,18 +22,15 @@ try:
     
     print(f"Target Paper: {title}")
 
-    # 2. Geminiで要約とツイート作成
+    # 2. Geminiで要約 (安定版の google-generativeai を使用)
     print("Generating tweet...")
-    # APIバージョン指定(http_options)を削除し、最もシンプルな初期化にします
-    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+    # 古いライブラリではこの書き方が最も確実です
+    model = genai.GenerativeModel('gemini-1.5-flash')
     
-    prompt = f"Create a catchy English tweet summarizing this AI paper. Keep it under 250 characters, use 1-2 hashtags, and make it engaging. No markdown formatting. \n\nTitle: {title}\nAbstract: {summary}"
-
-    # モデル名を 'gemini-1.5-flash' に戻します
-    response = client.models.generate_content(
-        model='gemini-1.5-flash',
-        contents=prompt
-    )
+    prompt = f"Create a catchy English tweet summarizing this AI paper. Keep it under 250 characters, use 1-2 hashtags, and make it engaging. \n\nTitle: {title}\nAbstract: {summary}"
+    
+    response = model.generate_content(prompt)
     tweet_text = f"{response.text}\n{link}"
 
     # 3. Xへ投稿
